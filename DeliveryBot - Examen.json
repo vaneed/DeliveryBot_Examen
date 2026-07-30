@@ -1,0 +1,1636 @@
+{
+  "name": "DeliveryBot - Examen",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "name": "Telegram Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        -1344,
+        880
+      ],
+      "webhookId": "e49ad8f0-ff05-4247-b240-f4f59b059c75",
+      "id": "63316c94-57bb-4b13-9da0-b18a844195c0",
+      "credentials": {
+        "telegramApi": {
+          "id": "CJpkhARACyckCSZh",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const msg = $json.message || {};\nconst text = (msg.text || '').trim();\nconst chatId = msg.chat && msg.chat.id;\nconst userId = msg.from && msg.from.id;\nconst firstName = (msg.from && msg.from.first_name) || '';\nconst lastName = (msg.from && msg.from.last_name) || '';\nconst fullName = (firstName + ' ' + lastName).trim();\n\nconst lower = text.toLowerCase();\nlet command = 'help';\nlet rawOrder = '';\nlet idPedido = '';\nlet nuevoEstado = '';\nlet estadoValido = false;\n\nif (lower === '/menu' || lower === 'menu' || lower === '/start') {\n  command = 'menu';\n} else if (lower === '/puntos' || lower === 'puntos' || lower === '4' || lower === 'ver mis puntos') {\n  command = 'puntos';\n} else if (lower.startsWith('/estado') || lower.startsWith('estado')) {\n  command = 'estado';\n  const body = text.replace(/^\\/?estado/i, '').trim();\n  const parts = body.split(/\\s+/);\n  idPedido = parts.shift() || '';\n  nuevoEstado = parts.join(' ').trim();\n  const validos = ['Recibido', 'Preparación', 'En camino', 'Entregado'];\n  const norm = (s) => (s || '').toString().toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').trim();\n  const match = validos.find(v => norm(v) === norm(nuevoEstado));\n  if (match) { nuevoEstado = match; estadoValido = true; }\n} else if (lower.startsWith('/pedir') || lower.startsWith('pedir')) {\n  command = 'pedir';\n  rawOrder = text.replace(/^\\/?pedir/i, '').trim();\n}\n\nconst parsedItems = [];\nif (command === 'pedir' && rawOrder) {\n  for (const part of rawOrder.split(',')) {\n    const seg = part.trim();\n    if (!seg) continue;\n    let qty = 1;\n    let name = seg;\n    const m1 = seg.match(/^(\\d+)\\s+(.+)$/);\n    const m2 = seg.match(/^(.+?)\\s*[xX]\\s*(\\d+)$/);\n    if (m1) { qty = parseInt(m1[1], 10); name = m1[2].trim(); }\n    else if (m2) { name = m2[1].trim(); qty = parseInt(m2[2], 10); }\n    if (!qty || qty < 1) qty = 1;\n    parsedItems.push({ nombre: name, cantidad: qty });\n  }\n}\n\nreturn { json: { chatId, userId, fullName, text, command, rawOrder, parsedItems, idPedido, nuevoEstado, estadoValido } };"
+      },
+      "name": "Parse Command",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1120,
+        880
+      ],
+      "id": "050be852-ff78-4770-b359-466dafa7efb4"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.command }}",
+                    "rightValue": "menu",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "menu"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.command }}",
+                    "rightValue": "pedir",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "pedir"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.command }}",
+                    "rightValue": "estado",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "estado"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.command }}",
+                    "rightValue": "puntos",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "puntos"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "ayuda"
+        }
+      },
+      "name": "Route Command",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -896,
+        736
+      ],
+      "id": "ffa1ba1f-1462-4c08-a1bc-7e51a6608d0b"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "1zzU_pOEV8vxpsYlB5Lnsox_ibcSo1htMG2erDQD7pQ8",
+          "cachedResultName": "Delivery Bot"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "MENU"
+        },
+        "options": {}
+      },
+      "name": "Leer Menú (Lista)",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -672,
+        192
+      ],
+      "id": "55326380-9152-407a-b001-bd88e8173efd",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "XkgLxmVhv3Lio52V",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const menu = $input.all().map(i => i.json);\nconst chatId = $('Parse Command').first().json.chatId;\nconst money = (n) => '$' + Math.round(Number(n) || 0).toLocaleString('es-CO');\n\nconst cats = {};\nfor (const m of menu) {\n  const cat = m.categoria || 'Otros';\n  if (!cats[cat]) cats[cat] = [];\n  cats[cat].push(m);\n}\n\nlet text = '☕ *MENÚ DELIVERYBOT*\\n\\n';\nfor (const cat of Object.keys(cats)) {\n  text += '*' + cat + '*\\n';\n  for (const m of cats[cat]) {\n    const stock = Number(m.stock) || 0;\n    const disp = stock > 0 ? '(' + stock + ' disp.)' : '(AGOTADO)';\n    text += '• ' + m.nombre + ' - ' + money(m.precio) + ' ' + disp + '\\n';\n  }\n  text += '\\n';\n}\ntext += 'Para pedir escribe: /pedir 2 cafe, 1 empanada';\ntext += '\\n\\n\\u2b50 Opciones:\\n1. Ver men\\u00fa (/menu)\\n2. Hacer pedido (/pedir)\\n3. Estado (/estado)\\n4. Ver mis Puntos (/puntos)';\n\nreturn [{ json: { chatId, menuText: text } }];"
+      },
+      "name": "Formatear Menú",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -448,
+        192
+      ],
+      "id": "082db796-9c2c-4476-bdfc-e4713cade7a6"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chatId }}",
+        "text": "={{ $json.menuText }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "Markdown"
+        }
+      },
+      "name": "Enviar Menú",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -224,
+        192
+      ],
+      "webhookId": "cfbdc824-9c24-4d90-a4fe-38d4c4a4dde6",
+      "id": "c14755d8-d3a7-4eb0-8c2f-af0909ca5780",
+      "credentials": {
+        "telegramApi": {
+          "id": "CJpkhARACyckCSZh",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "1zzU_pOEV8vxpsYlB5Lnsox_ibcSo1htMG2erDQD7pQ8",
+          "cachedResultName": "Delivery Bot"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "MENU"
+        },
+        "options": {}
+      },
+      "name": "Leer Menú (Pedido)",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -672,
+        384
+      ],
+      "id": "35f585d7-0367-4e98-8ee1-2e688fc7b445",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "XkgLxmVhv3Lio52V",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const menu = $input.all().map(i => i.json);\nconst parse = $('Parse Command').first().json;\nconst ordered = parse.parsedItems || [];\nconst money = (n) => '$' + Math.round(Number(n) || 0).toLocaleString('es-CO');\nconst normalize = (s) => (s || '').toString().toLowerCase().trim().normalize('NFD').replace(/[\\u0300-\\u036f]/g, '');\n\nlet ok = true;\nconst errors = [];\nlet total = 0;\nconst lines = [];\nconst stockUpdates = [];\n\nif (ordered.length === 0) {\n  ok = false;\n  errors.push('No entendí los productos. Ejemplo: /pedir 2 cafe, 1 empanada');\n}\n\nfor (const item of ordered) {\n  const q = normalize(item.nombre);\n  const match = menu.find(m => normalize(m.nombre) === q) || menu.find(m => normalize(m.nombre).includes(q));\n  if (!match) { ok = false; errors.push('❌ \"' + item.nombre + '\" no está en el menú.'); continue; }\n  const stock = Number(match.stock) || 0;\n  const precio = Number(match.precio) || 0;\n  if (stock < item.cantidad) { ok = false; errors.push('❌ Sin stock suficiente de ' + match.nombre + ' (disponible: ' + stock + ').'); continue; }\n  const subtotal = precio * item.cantidad;\n  total += subtotal;\n  lines.push(item.cantidad + ' x ' + match.nombre + ' = ' + money(subtotal));\n  stockUpdates.push({ id_producto: match.id_producto, stock: stock - item.cantidad });\n}\n\nconst now = $now;\nconst fecha = now.toFormat('yyyy-MM-dd');\nconst hora = now.toFormat('HH:mm:ss');\nconst idPedido = 'ORD-' + now.toFormat('yyyyMMdd-HHmmss') + '-' + Math.floor(Math.random() * 900 + 100);\n\nreturn [{ json: {\n  ok,\n  error: errors.join('\\n'),\n  id_pedido: idPedido,\n  id_usuario: parse.userId,\n  chatId: parse.chatId,\n  nombre: parse.fullName,\n  detalles_pedido: lines.join(' | '),\n  resumen: lines.join('\\n'),\n  total_pago: Number(total.toFixed(2)),\n  total_fmt: money(total),\n  estado: 'Recibido',\n  fecha,\n  hora,\n  stockUpdates,\n} }];"
+      },
+      "name": "Validar Pedido y Calcular Total",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -448,
+        384
+      ],
+      "id": "7c4e1e27-1cc6-4331-99ca-5ea82ca74f0d"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "ok",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "Pedido Válido?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -224,
+        384
+      ],
+      "id": "ab906191-27f6-4af6-b482-0cc2d5ad9868"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "1zzU_pOEV8vxpsYlB5Lnsox_ibcSo1htMG2erDQD7pQ8",
+          "cachedResultName": "Delivery Bot"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "PEDIDOS"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "id_pedido": "={{ $json.id_pedido }}",
+            "id_usuario": "={{ $json.id_usuario }}",
+            "detalles_pedido": "={{ $json.detalles_pedido }}",
+            "total_pago": "={{ $json.total_pago }}",
+            "estado": "={{ $json.estado }}",
+            "fecha": "={{ $json.fecha }}",
+            "hora": "={{ $json.hora }}"
+          },
+          "schema": [
+            {
+              "id": "id_pedido",
+              "displayName": "id_pedido",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "id_usuario",
+              "displayName": "id_usuario",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "detalles_pedido",
+              "displayName": "detalles_pedido",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "total_pago",
+              "displayName": "total_pago",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "estado",
+              "displayName": "estado",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "fecha",
+              "displayName": "fecha",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "hora",
+              "displayName": "hora",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Registrar Pedido",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        0,
+        0
+      ],
+      "id": "e067b17a-f0bb-45dc-8992-36ab356d4fa0",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "XkgLxmVhv3Lio52V",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "1zzU_pOEV8vxpsYlB5Lnsox_ibcSo1htMG2erDQD7pQ8",
+          "cachedResultName": "Delivery Bot"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "USUARIOS"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "telegram_id",
+              "lookupValue": "={{ $('Validar Pedido y Calcular Total').item.json.id_usuario }}"
+            }
+          ]
+        },
+        "options": {
+          "returnFirstMatch": true
+        }
+      },
+      "name": "Leer Usuario",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        224,
+        0
+      ],
+      "id": "0072b39f-b397-46b8-81f2-9b160605f005",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "XkgLxmVhv3Lio52V",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const v = $('Validar Pedido y Calcular Total').item.json;\nconst rows = $input.all().map(i => i.json).filter(r => r && r.telegram_id);\nconst prev = rows[0];\nconst prevPts = prev ? (Number(prev.puntos_lealtad) || 0) : 0;\n// 1 punto de lealtad por cada $1.000 gastados\nconst ganados = Math.floor((Number(v.total_pago) || 0) / 1000);\nconst departamento = (prev && prev.departamento) ? prev.departamento : '';\n\nreturn [{ json: {\n  telegram_id: String(v.id_usuario),\n  nombre_completo: v.nombre || (prev ? prev.nombre_completo : ''),\n  departamento,\n  puntos_lealtad: prevPts + ganados\n} }];"
+      },
+      "name": "Preparar Usuario",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        0
+      ],
+      "id": "627c4931-0725-48bf-8dfc-3d9203dd0bff"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chatId }}",
+        "text": "=✅ ¡Pedido confirmado!\nN° de orden: {{ $json.id_pedido }}\n\n{{ $json.resumen }}\n\nTotal: {{ $json.total_fmt }}\nEstado: {{ $json.estado }}\n\nTe avisaremos cuando tu pedido esté en camino. ¡Gracias!",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "name": "Notificar Cliente",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        192
+      ],
+      "webhookId": "0829e71d-fd76-470a-a5c8-40bf4e402f2c",
+      "id": "d9443d8a-e447-4ec3-85d6-e204dac1f12b",
+      "credentials": {
+        "telegramApi": {
+          "id": "CJpkhARACyckCSZh",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chatId }}",
+        "text": "=🔔 NUEVO PEDIDO (Cocina)\nOrden: {{ $json.id_pedido }}\nCliente: {{ $json.nombre }} (ID: {{ $json.id_usuario }})\n\n{{ $json.resumen }}\n\nTotal: {{ $json.total_fmt }}\nHora: {{ $json.hora }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "name": "Notificar Cocina",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        384
+      ],
+      "webhookId": "bf135a76-937f-453d-bef7-a3611d52b49b",
+      "id": "6c5c57dd-9f3b-449f-9593-678c799a08d9",
+      "credentials": {
+        "telegramApi": {
+          "id": "CJpkhARACyckCSZh",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const updates = ($json.stockUpdates) || [];\nreturn updates.map(u => ({ json: { id_producto: u.id_producto, stock: u.stock } }));"
+      },
+      "name": "Preparar Descuento de Stock",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        0,
+        576
+      ],
+      "id": "5cb904f2-c116-4cc6-bd72-a08f0b6ab580"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "1zzU_pOEV8vxpsYlB5Lnsox_ibcSo1htMG2erDQD7pQ8",
+          "cachedResultName": "Delivery Bot"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "MENU"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "matchingColumns": [
+            "id_producto"
+          ],
+          "value": {
+            "id_producto": "={{ $json.id_producto }}",
+            "stock": "={{ $json.stock }}"
+          },
+          "schema": [
+            {
+              "id": "id_producto",
+              "displayName": "id_producto",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "stock",
+              "displayName": "stock",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": false
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Actualizar Stock",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        224,
+        576
+      ],
+      "id": "f7bbd902-6a80-4260-bb83-e0e37cb57fec",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "XkgLxmVhv3Lio52V",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chatId }}",
+        "text": "=⚠️ No pudimos procesar tu pedido:\n\n{{ $json.error }}\n\nEscribe /menu para ver los productos disponibles.",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "name": "Notificar Error",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        768
+      ],
+      "webhookId": "65fd7e3f-3db3-4606-aceb-6d804b7f45ba",
+      "id": "bc0c719f-6316-4fc7-9db0-2105ee3c1a75",
+      "credentials": {
+        "telegramApi": {
+          "id": "CJpkhARACyckCSZh",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "1zzU_pOEV8vxpsYlB5Lnsox_ibcSo1htMG2erDQD7pQ8",
+          "cachedResultName": "Delivery Bot"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "PEDIDOS"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "id_pedido",
+              "lookupValue": "={{ $json.idPedido }}"
+            }
+          ]
+        },
+        "options": {
+          "returnFirstMatch": true
+        }
+      },
+      "name": "Buscar Pedido",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -672,
+        1056
+      ],
+      "id": "e6c46453-4ffa-40e8-aae6-bf987d42c688",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "XkgLxmVhv3Lio52V",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const parse = $('Parse Command').first().json;\nconst rows = $input.all().map(i => i.json).filter(r => r && r.id_pedido);\nconst pedido = rows[0];\nconst encontrado = !!pedido;\nconst emojis = { 'Recibido': '📥', 'Preparación': '👨‍🍳', 'En camino': '🛵', 'Entregado': '✅' };\nconst estado = parse.nuevoEstado;\n\nreturn [{ json: {\n  ok: encontrado && parse.estadoValido,\n  encontrado,\n  estadoValido: parse.estadoValido,\n  adminChatId: String(parse.chatId),\n  id_pedido: parse.idPedido,\n  nuevoEstado: estado,\n  emoji: emojis[estado] || '🔔',\n  clienteChatId: pedido ? String(pedido.id_usuario) : '',\n  detalles: pedido ? pedido.detalles_pedido : '',\n} }];"
+      },
+      "name": "Preparar Actualización Estado",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -448,
+        1056
+      ],
+      "id": "7afd40c9-d699-4190-aeba-d41f7fd68c18"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "ok",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "Actualización Válida?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -224,
+        1056
+      ],
+      "id": "3c74376d-d06a-4bb4-ae49-02ba16e6fe27"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "1zzU_pOEV8vxpsYlB5Lnsox_ibcSo1htMG2erDQD7pQ8",
+          "cachedResultName": "Delivery Bot"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "PEDIDOS"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "matchingColumns": [
+            "id_pedido"
+          ],
+          "value": {
+            "id_pedido": "={{ $json.id_pedido }}",
+            "estado": "={{ $json.nuevoEstado }}"
+          },
+          "schema": [
+            {
+              "id": "id_pedido",
+              "displayName": "id_pedido",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "estado",
+              "displayName": "estado",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Actualizar Estado",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        0,
+        960
+      ],
+      "id": "cb5939e4-f38c-4209-93f4-0fc5da0e70e6",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "XkgLxmVhv3Lio52V",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Preparar Actualización Estado').item.json.clienteChatId }}",
+        "text": "={{ $('Preparar Actualización Estado').item.json.emoji }} Actualización de tu pedido {{ $('Preparar Actualización Estado').item.json.id_pedido }}\n\nNuevo estado: *{{ $('Preparar Actualización Estado').item.json.nuevoEstado }}*\n\n{{ $('Preparar Actualización Estado').item.json.detalles }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "Markdown"
+        }
+      },
+      "name": "Notificar Cambio Estado",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        224,
+        960
+      ],
+      "webhookId": "99e6423d-cf3c-4a35-ade2-b75e0f864ea7",
+      "id": "52de34ed-1077-48da-8be6-39d7dd40e88a",
+      "credentials": {
+        "telegramApi": {
+          "id": "CJpkhARACyckCSZh",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Preparar Actualización Estado').item.json.adminChatId }}",
+        "text": "=✅ Estado actualizado: {{ $('Preparar Actualización Estado').item.json.id_pedido }} → {{ $('Preparar Actualización Estado').item.json.nuevoEstado }}. Se notificó al cliente.",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "name": "Confirmar al Admin",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        448,
+        960
+      ],
+      "webhookId": "765a2d1d-57b5-43d5-93ad-a7487dab3a52",
+      "id": "ab1ba09b-ee67-4d31-84a4-cfad6e77c369",
+      "credentials": {
+        "telegramApi": {
+          "id": "CJpkhARACyckCSZh",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.adminChatId }}",
+        "text": "=⚠️ No se pudo actualizar el pedido {{ $json.id_pedido }}.\n{{ $json.encontrado ? \"\" : \"• Pedido no encontrado.\" }}{{ $json.estadoValido ? \"\" : \"• Estado inválido (usa: Recibido, Preparación, En camino, Entregado).\" }}\n\nFormato: /estado ID-DEL-PEDIDO Estado\nEj: /estado ORD-20260724-120000-123 En camino",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "name": "Avisar Error Estado",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        1152
+      ],
+      "webhookId": "c51cfa46-627e-4518-93d7-a23312818c00",
+      "id": "04483429-d732-4175-9a36-dd9fa5e8455a",
+      "credentials": {
+        "telegramApi": {
+          "id": "CJpkhARACyckCSZh",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chatId }}",
+        "text": "👋 ¡Bienvenido a DeliveryBot!\n\nComandos disponibles:\n/menu - Ver el menú y precios\n/pedir - Hacer un pedido\n/estado - (admin) Cambiar estado de un pedido\n/puntos - Ver mis puntos de lealtad\n\nEjemplos:\n/pedir 2 cafe, 1 empanada\n/estado ORD-20260724-120000-123 En camino",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "name": "Enviar Ayuda",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -672,
+        1248
+      ],
+      "webhookId": "bc86764c-209e-480c-9a61-6ef2e911428e",
+      "id": "1bbd8960-8672-4fdc-9dfb-52c5a6012414",
+      "credentials": {
+        "telegramApi": {
+          "id": "CJpkhARACyckCSZh",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "1zzU_pOEV8vxpsYlB5Lnsox_ibcSo1htMG2erDQD7pQ8",
+          "cachedResultName": "Delivery Bot"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "SESSIONS"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "matchingColumns": [
+            "telegram_id"
+          ],
+          "value": {
+            "telegram_id": "={{ $json.userId }}",
+            "pantalla_actual": "={{ $json.command }}",
+            "carrito_temporal": "={{ JSON.stringify($json.parsedItems || []) }}",
+            "ultimo_cambio": "={{ $now.toFormat(\"yyyy-MM-dd HH:mm:ss\") }}"
+          },
+          "schema": [
+            {
+              "id": "telegram_id",
+              "displayName": "telegram_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "pantalla_actual",
+              "displayName": "pantalla_actual",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "carrito_temporal",
+              "displayName": "carrito_temporal",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "ultimo_cambio",
+              "displayName": "ultimo_cambio",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Registrar Sesión",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -896,
+        992
+      ],
+      "id": "1ebc75b9-a0d9-49db-b13d-e834ee1fbb87",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "XkgLxmVhv3Lio52V",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 20
+            }
+          ]
+        }
+      },
+      "name": "Reporte Diario (Schedule)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -1344,
+        1472
+      ],
+      "id": "ec4adb3b-1f39-434a-a775-c204af1d2892"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "1zzU_pOEV8vxpsYlB5Lnsox_ibcSo1htMG2erDQD7pQ8",
+          "cachedResultName": "Delivery Bot"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "PEDIDOS"
+        },
+        "options": {}
+      },
+      "name": "Leer Pedidos (Reporte)",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -1120,
+        1472
+      ],
+      "id": "1fb6191e-4631-46b3-95b8-2d9d6dff5610",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "XkgLxmVhv3Lio52V",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = $input.all().map(i => i.json).filter(r => r && Object.keys(r).length > 0 && r.id_pedido);\nconst hoy = $now.toFormat('yyyy-MM-dd');\nconst money = (n) => '$' + Math.round(Number(n) || 0).toLocaleString('es-CO');\n\n// Solo pedidos de hoy\nconst delDia = rows.filter(r => String(r.fecha) === hoy);\n\nlet totalVendido = 0;\nconst porProducto = {};\nconst porHora = {};\n\nfor (const r of delDia) {\n  totalVendido += Number(r.total_pago) || 0;\n  const h = (String(r.hora || '').split(':')[0] || '00').padStart(2, '0');\n  porHora[h] = (porHora[h] || 0) + 1;\n  const partes = String(r.detalles_pedido || '').split('|');\n  for (const p of partes) {\n    const m = p.trim().match(/^(\\d+)\\s*x\\s*(.+?)\\s*=/i);\n    if (m) {\n      const qty = parseInt(m[1], 10) || 0;\n      const nombre = m[2].trim();\n      porProducto[nombre] = (porProducto[nombre] || 0) + qty;\n    }\n  }\n}\n\nlet estrella = '—', estrellaQty = 0;\nfor (const [nombre, qty] of Object.entries(porProducto)) {\n  if (qty > estrellaQty) { estrella = nombre; estrellaQty = qty; }\n}\n\nlet horaPico = '—', horaPicoQty = 0;\nfor (const [h, qty] of Object.entries(porHora)) {\n  if (qty > horaPicoQty) { horaPico = h + ':00'; horaPicoQty = qty; }\n}\n\nlet text = '📊 *REPORTE DIARIO DE VENTAS*\\n' + hoy + '\\n\\n';\ntext += '🧾 Pedidos: ' + delDia.length + '\\n';\ntext += '💰 Total vendido: ' + money(totalVendido) + '\\n';\ntext += '⭐ Producto estrella: ' + estrella + (estrellaQty ? ' (' + estrellaQty + ' uds.)' : '') + '\\n';\ntext += '⏰ Hora pico: ' + horaPico + (horaPicoQty ? ' (' + horaPicoQty + ' pedidos)' : '');\n\nif (delDia.length === 0) {\n  text = '📊 *REPORTE DIARIO DE VENTAS*\\n' + hoy + '\\n\\nHoy no se registraron pedidos.';\n}\n\n// Destino del reporte: el mismo chat del último pedido registrado (un solo bot/chat)\nlet chatId = '';\nfor (const r of rows) {\n  if (r.id_usuario) chatId = String(r.id_usuario);\n}\n\nreturn [{ json: {\n  reporte: text,\n  chatId,\n  fecha: hoy,\n  pedidos: delDia.length,\n  total_vendido: totalVendido,\n  producto_estrella: estrella,\n  hora_pico: horaPico,\n} }];"
+      },
+      "name": "Construir Reporte",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -896,
+        1472
+      ],
+      "id": "00eeefd0-768c-436b-b6d9-520811ec7050"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chatId }}",
+        "text": "={{ $json.reporte }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "Markdown"
+        }
+      },
+      "name": "Enviar Reporte Admin",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -672,
+        1472
+      ],
+      "webhookId": "70042617-fadb-4cb6-9448-31af056b0cc7",
+      "id": "69a13c41-6325-4d0e-8203-c65ef6f0c7b1",
+      "credentials": {
+        "telegramApi": {
+          "id": "CJpkhARACyckCSZh",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "DeliveryBot – Sistema Completo\n\nTELEGRAM (comandos):\n• /menu → ver menú y precios\n• /pedir 2 cafe, 1 empanada → hacer pedido\n• /estado ORD-xxxx En camino → (admin) cambiar estado + notificar al cliente\n\nSCHEDULE (20:00): reporte de ventas → total, producto estrella y hora pico.\n\nGoogle Sheets \"Delivery Bot\": hojas MENU, PEDIDOS, USUARIOS, SESSIONS.\nUSUARIOS: acumula puntos_lealtad (1 pto por cada $1.000).\nCocina y reporte usan Chat ID configurables (setup).",
+        "height": 320,
+        "width": 460
+      },
+      "name": "Sticky Note 8977063a",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -336,
+        1536
+      ],
+      "id": "6d231e92-afde-46a2-9d45-a1a0cfe6fbc6"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "4db98079-22a6-40f4-b4f2-6b257c7378f9",
+              "name": "telegram_id",
+              "value": "={{ $json.id_usuario }}",
+              "type": "string"
+            },
+            {
+              "id": "59d54961-4b28-4d1f-b39d-8953619074b7",
+              "name": "nombre",
+              "value": "={{ $json.nombre }}",
+              "type": "string"
+            },
+            {
+              "id": "b461fc1b-e1eb-410a-89a9-84b4374b603f",
+              "name": "total_pago",
+              "value": "={{ $json.total_pago }}",
+              "type": "number"
+            },
+            {
+              "id": "3906e1eb-545d-47c8-8455-d38368bd02fc",
+              "name": "puntos_ganados",
+              "value": "={{ Math.floor(($json.total_pago || 0) / 5) }}",
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "fd04c8cd-22af-4f13-b925-21ce7802ff73",
+      "name": "Calcular Puntos",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        224,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "1zzU_pOEV8vxpsYlB5Lnsox_ibcSo1htMG2erDQD7pQ8",
+          "cachedResultName": "Delivery Bot"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "USUARIOS"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "telegram_id",
+              "lookupValue": "={{ $json.telegram_id }}"
+            }
+          ]
+        },
+        "options": {
+          "returnFirstMatch": true
+        }
+      },
+      "id": "1d12d618-ea7e-4617-bf19-665e97059bce",
+      "name": "Leer Puntos Usuario",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        448,
+        192
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "XkgLxmVhv3Lio52V",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const calc = $('Calcular Puntos').item.json;\nconst rows = $input.all().map(i => i.json).filter(r => r && r.telegram_id);\nconst prev = rows[0];\nconst prevPts = prev ? (Number(prev.puntos_lealtad) || 0) : 0;\nconst ganados = Number(calc.puntos_ganados) || 0;\nreturn [{ json: {\n  telegram_id: String(calc.telegram_id),\n  nombre_completo: (prev && prev.nombre_completo) ? prev.nombre_completo : calc.nombre,\n  puntos_lealtad: prevPts + ganados,\n} }];"
+      },
+      "id": "e40e4572-57a2-4b62-bc01-5115a292cbd2",
+      "name": "Sumar Puntos",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        672,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "1zzU_pOEV8vxpsYlB5Lnsox_ibcSo1htMG2erDQD7pQ8",
+          "cachedResultName": "Delivery Bot"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "USUARIOS"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "telegram_id": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+            "nombre_completo": "={{ $('Telegram Trigger').item.json.message.chat.first_name }}",
+            "puntos_lealtad": "={{ $('Calcular Puntos').item.json.puntos_ganados }}"
+          },
+          "matchingColumns": [
+            "telegram_id"
+          ],
+          "schema": [
+            {
+              "id": "telegram_id",
+              "displayName": "telegram_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "nombre_completo",
+              "displayName": "nombre_completo",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "puntos_lealtad",
+              "displayName": "puntos_lealtad",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "b0b99563-5f47-472d-a9cc-8bbfe068740b",
+      "name": "Actualizar Puntos Usuario",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        896,
+        192
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "XkgLxmVhv3Lio52V",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "1zzU_pOEV8vxpsYlB5Lnsox_ibcSo1htMG2erDQD7pQ8",
+          "cachedResultName": "Delivery Bot"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "USUARIOS"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "telegram_id",
+              "lookupValue": "={{ $json.userId }}"
+            }
+          ]
+        },
+        "options": {
+          "returnFirstMatch": true
+        }
+      },
+      "id": "09e04f8a-6f60-4b13-8bd0-8bc1c9e45acd",
+      "name": "Leer Puntos (Consulta)",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -672,
+        560
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "XkgLxmVhv3Lio52V",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const parse = $('Parse Command').first().json;\nconst rows = $input.all().map(i => i.json).filter(r => r && r.telegram_id);\nconst prev = rows[0];\nconst pts = prev ? (Number(prev.puntos_lealtad) || 0) : 0;\nconst nombre = parse.fullName || (prev ? prev.nombre_completo : '') || 'cliente';\nconst text = 'Hola ' + nombre + ', actualmente tienes \\ud83c\\udfc6 ' + pts + ' puntos acumulados. \\u00a1Sigue comprando para canjear premios!';\nreturn [{ json: { chatId: parse.chatId, mensaje: text } }];"
+      },
+      "id": "14a39382-c2ba-4b6e-807f-cf99d8ef6a0b",
+      "name": "Formatear Puntos",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -448,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chatId }}",
+        "text": "={{ $json.mensaje }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "id": "237e048e-d3ee-475e-9640-686097d2e3a9",
+      "name": "Enviar Puntos",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -224,
+        560
+      ],
+      "webhookId": "ed7d7957-3723-4d26-ba7d-9ecf032d890f",
+      "credentials": {
+        "telegramApi": {
+          "id": "CJpkhARACyckCSZh",
+          "name": "Telegram account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Parse Command",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Command": {
+      "main": [
+        [
+          {
+            "node": "Route Command",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Registrar Sesión",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Command": {
+      "main": [
+        [
+          {
+            "node": "Leer Menú (Lista)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Leer Menú (Pedido)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Buscar Pedido",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Leer Puntos (Consulta)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Enviar Ayuda",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Leer Menú (Lista)": {
+      "main": [
+        [
+          {
+            "node": "Formatear Menú",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Formatear Menú": {
+      "main": [
+        [
+          {
+            "node": "Enviar Menú",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Leer Menú (Pedido)": {
+      "main": [
+        [
+          {
+            "node": "Validar Pedido y Calcular Total",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validar Pedido y Calcular Total": {
+      "main": [
+        [
+          {
+            "node": "Pedido Válido?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pedido Válido?": {
+      "main": [
+        [
+          {
+            "node": "Registrar Pedido",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Notificar Cliente",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Notificar Cocina",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Preparar Descuento de Stock",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Calcular Puntos",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Notificar Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Registrar Pedido": {
+      "main": [
+        [
+          {
+            "node": "Leer Usuario",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Leer Usuario": {
+      "main": [
+        [
+          {
+            "node": "Preparar Usuario",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar Usuario": {
+      "main": [
+        []
+      ]
+    },
+    "Preparar Descuento de Stock": {
+      "main": [
+        [
+          {
+            "node": "Actualizar Stock",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Pedido": {
+      "main": [
+        [
+          {
+            "node": "Preparar Actualización Estado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar Actualización Estado": {
+      "main": [
+        [
+          {
+            "node": "Actualización Válida?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Actualización Válida?": {
+      "main": [
+        [
+          {
+            "node": "Actualizar Estado",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Avisar Error Estado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Actualizar Estado": {
+      "main": [
+        [
+          {
+            "node": "Notificar Cambio Estado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notificar Cambio Estado": {
+      "main": [
+        [
+          {
+            "node": "Confirmar al Admin",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reporte Diario (Schedule)": {
+      "main": [
+        [
+          {
+            "node": "Leer Pedidos (Reporte)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Leer Pedidos (Reporte)": {
+      "main": [
+        [
+          {
+            "node": "Construir Reporte",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Construir Reporte": {
+      "main": [
+        [
+          {
+            "node": "Enviar Reporte Admin",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calcular Puntos": {
+      "main": [
+        [
+          {
+            "node": "Leer Puntos Usuario",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Leer Puntos Usuario": {
+      "main": [
+        [
+          {
+            "node": "Sumar Puntos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sumar Puntos": {
+      "main": [
+        [
+          {
+            "node": "Actualizar Puntos Usuario",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Leer Puntos (Consulta)": {
+      "main": [
+        [
+          {
+            "node": "Formatear Puntos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Formatear Puntos": {
+      "main": [
+        [
+          {
+            "node": "Enviar Puntos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "6136eed8-8d48-4842-897a-f9044ca3d718",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "05deca64af6c1b6a63f9ce3efb8a2a4e22d9dc2c5221cd60619cc1222c7f49ac"
+  },
+  "nodeGroups": [],
+  "id": "WOOVI4WZAhDZf6zB",
+  "tags": []
+}
