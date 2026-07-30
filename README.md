@@ -148,3 +148,11 @@ Con esta implementación el bot:
 - Mantiene actualizado el historial de puntos del usuario.
 - Permite consultar los puntos acumulados en cualquier momento.
 - Incentiva la fidelización de los clientes mediante un sistema de recompensas.
+
+
+## IMAGENES
+![alt text](image-2.png)
+
+![alt text](image-1.png)
+
+![alt text](image.png)
