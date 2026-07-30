@@ -151,8 +151,11 @@ Con esta implementación el bot:
 
 
 ## IMAGENES
-![alt text](image-2.png)
+<img width="1657" height="1901" alt="Captura desde 2026-07-30 11-31-22" src="https://github.com/user-attachments/assets/d206bb41-8537-4883-babf-fe79e08b5fd0" />
 
-![alt text](image-1.png)
+<img width="1105" height="594" alt="Captura desde 2026-07-30 11-30-52" src="https://github.com/user-attachments/assets/ca962b40-79db-4443-b9fa-055d9ba1f021" />
 
-![alt text](image.png)
+<img width="1699" height="925" alt="Captura desde 2026-07-30 11-30-30" src="https://github.com/user-attachments/assets/671e4d9d-b270-439f-8de6-9a62d8d08a11" />
+
+
+
